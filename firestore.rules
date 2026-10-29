@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// The group code is the group's document id and acts as the shared secret:
+// groups cannot be listed, so you can only open a group whose code you know.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /groups/{groupId} {
+      allow get, update, delete: if true;
+      allow create: if groupId.size() == 8 && request.resource.data.name is string;
+      allow list: if false;
+
+      match /{collection}/{docId} {
+        allow read, write: if collection in ['members', 'leagues', 'rules', 'days', 'entries']
+          && exists(/databases/$(database)/documents/groups/$(groupId));
+      }
+    }
+  }
+}

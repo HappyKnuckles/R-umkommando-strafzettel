@@ -1,11 +1,10 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
 import {
   Button,
   Card,
-  Chip,
   confirm,
+  Empty,
   Input,
   Label,
   Muted,
@@ -20,10 +19,10 @@ import { RuleKind } from '../../../lib/types';
 type Sign = 'penalty' | 'credit';
 
 export default function RuleScreen() {
-  const { groupId, ruleId } = useLocalSearchParams<{ groupId: string; ruleId?: string }>();
+  const { leagueId, ruleId } = useLocalSearchParams<{ leagueId: string; ruleId?: string }>();
   const { data, actions } = useStore();
+  const league = data.leagues.find((l) => l.id === leagueId);
   const existing = data.rules.find((r) => r.id === ruleId);
-  const leagues = data.leagues.filter((l) => l.groupId === groupId);
 
   const [name, setName] = useState(existing?.name ?? '');
   const [condition, setCondition] = useState(existing?.condition ?? '');
@@ -33,7 +32,8 @@ export default function RuleScreen() {
   const [sign, setSign] = useState<Sign>(existing && existing.amountCents < 0 ? 'credit' : 'penalty');
   const [kind, setKind] = useState<RuleKind>(existing?.kind ?? 'count');
   const [threshold, setThreshold] = useState(existing?.threshold?.toString() ?? '');
-  const [leagueId, setLeagueId] = useState<string | null>(existing?.leagueId ?? null);
+
+  if (!league) return <Empty text="Liga nicht gefunden." />;
 
   const save = () => {
     const amountCents = parseMoney(amount);
@@ -45,8 +45,8 @@ export default function RuleScreen() {
 
     actions.saveRule(
       {
-        groupId: groupId!,
-        leagueId,
+        groupId: league.groupId,
+        leagueId: league.id,
         name: name.trim(),
         condition: condition.trim(),
         amountCents: sign === 'credit' ? -amountCents : amountCents,
@@ -137,21 +137,7 @@ export default function RuleScreen() {
         )}
       </Card>
 
-      <Card>
-        <Label>Gilt für</Label>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <Chip label="Alle Ligen" active={leagueId === null} onPress={() => setLeagueId(null)} />
-          {leagues.map((l) => (
-            <Chip
-              key={l.id}
-              label={l.name}
-              active={leagueId === l.id}
-              onPress={() => setLeagueId(l.id)}
-            />
-          ))}
-        </View>
-      </Card>
-
+      <Muted>Gilt nur für die Liga „{league.name}“.</Muted>
       {existing && (
         <Muted>Änderungen am Betrag gelten auch für alle bisherigen Spieltage.</Muted>
       )}

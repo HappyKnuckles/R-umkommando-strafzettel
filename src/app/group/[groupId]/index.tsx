@@ -20,18 +20,11 @@ import {
   TextPrompt,
 } from '../../../components/ui';
 import { formatMoney, formatOpen } from '../../../lib/format';
-import {
-  isAutomatic,
-  leagueDays,
-  leagueMoney,
-  memberTotals,
-  thresholdLabel,
-} from '../../../lib/stats';
+import { leagueDays, leagueMoney, memberTotals } from '../../../lib/stats';
 import { shareGroup } from '../../../lib/share';
 import { formatCode, useStore } from '../../../lib/store';
-import { Rule } from '../../../lib/types';
 
-type Tab = 'leagues' | 'members' | 'rules';
+type Tab = 'leagues' | 'members';
 
 export default function GroupScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
@@ -44,7 +37,6 @@ export default function GroupScreen() {
 
   const members = data.members.filter((m) => m.groupId === group.id);
   const leagues = data.leagues.filter((l) => l.groupId === group.id);
-  const rules = data.rules.filter((r) => r.groupId === group.id && !r.deletedOn);
   const groupMoney = leagues
     .map((l) => leagueMoney(data, l))
     .reduce(
@@ -74,7 +66,6 @@ export default function GroupScreen() {
         options={[
           { key: 'leagues', label: `Ligen (${leagues.length})` },
           { key: 'members', label: `Mitglieder (${members.length})` },
-          { key: 'rules', label: `Regeln (${rules.length})` },
         ]}
         value={tab}
         onChange={setTab}
@@ -187,23 +178,6 @@ export default function GroupScreen() {
         </>
       )}
 
-      {tab === 'rules' && (
-        <>
-          {rules.length === 0 && (
-            <Empty text="Der Strafkatalog ist leer. Füge z.B. „Pudel – 0,10 €“ hinzu." />
-          )}
-          {rules.map((r) => (
-            <RuleCard
-              key={r.id}
-              rule={r}
-              leagueName={leagues.find((l) => l.id === r.leagueId)?.name}
-              onPress={() => router.push(`/group/${group.id}/rule?ruleId=${r.id}`)}
-            />
-          ))}
-          <Button title="+ Regel hinzufügen" onPress={() => router.push(`/group/${group.id}/rule`)} />
-        </>
-      )}
-
       <Button
         title="Gruppe für alle löschen"
         variant="danger"
@@ -232,33 +206,5 @@ export default function GroupScreen() {
         onClose={() => setRenaming(null)}
       />
     </Screen>
-  );
-}
-
-function RuleCard({
-  rule,
-  leagueName,
-  onPress,
-}: {
-  rule: Rule;
-  leagueName?: string;
-  onPress: () => void;
-}) {
-  return (
-    <Card onPress={onPress}>
-      <View style={styles.rowBetween}>
-        <Text style={[styles.title, { flex: 1 }]}>{rule.name}</Text>
-        <Money cents={rule.amountCents} />
-      </View>
-      {!!rule.condition && <Text style={{ color: colors.text, marginTop: 4 }}>{rule.condition}</Text>}
-      <Muted style={{ marginTop: 6 }}>
-        {rule.amountCents < 0 ? 'Gutschrift · ' : ''}
-        {isAutomatic(rule)
-          ? `Automatisch: pro Spiel ${thresholdLabel(rule)} Punkten`
-          : 'Manuell gezählt'}
-        {' · '}
-        {leagueName ?? 'Alle Ligen'}
-      </Muted>
-    </Card>
   );
 }

@@ -32,11 +32,9 @@ export function average(nums: number[]): number | null {
   return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
 }
 
-/** All rules of the league's group that apply to this league, including removed ones. */
+/** All rules of this league, including removed ones. */
 export function leagueRules(data: Data, league: League): Rule[] {
-  return data.rules.filter(
-    (r) => r.groupId === league.groupId && (r.leagueId === null || r.leagueId === league.id),
-  );
+  return data.rules.filter((r) => r.leagueId === league.id);
 }
 
 export function leagueDays(data: Data, leagueId: string): PlayDay[] {

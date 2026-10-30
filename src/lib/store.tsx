@@ -8,6 +8,7 @@ import {
   doc,
   DocumentData,
   getDoc,
+  getDocs,
   increment,
   onSnapshot,
   serverTimestamp,
@@ -108,7 +109,8 @@ const mappers = {
   rules: (groupId: string, id: string, r: DocumentData): Rule => ({
     id,
     groupId,
-    leagueId: r.leagueId ?? null,
+    // Old "all leagues" rules have no league until migrateGroupRules has split them up
+    leagueId: r.leagueId ?? '',
     name: r.name,
     condition: r.condition ?? '',
     amountCents: r.amountCents ?? 0,
@@ -133,11 +135,52 @@ const mappers = {
 
 type Collection = keyof typeof mappers;
 
+/**
+ * Rules used to be able to apply to all leagues of a group (leagueId null). Copies each
+ * such rule into every league, moves its counts to the copy of the day's league and
+ * removes the original. Copy ids derive from the original, so two phones running this
+ * at the same time end up with the same result.
+ */
+async function migrateGroupRules(groupId: string) {
+  const rules = await getDocs(sub(groupId, 'rules'));
+  const legacy = rules.docs.filter((d) => !d.data().leagueId);
+  if (!legacy.length) return;
+  const [leagues, days, entries] = await Promise.all(
+    ['leagues', 'days', 'entries'].map((name) => getDocs(sub(groupId, name))),
+  );
+  // Without leagues there is nothing to copy into; try again once one exists
+  if (leagues.empty) return;
+
+  const copyId = (ruleId: string, leagueId: string) => `${ruleId}_${leagueId}`;
+  const leagueOfDay = new Map(days.docs.map((d) => [d.id, d.data().leagueId as string]));
+  const batch = writeBatch(db());
+  for (const rule of legacy) {
+    for (const l of leagues.docs) {
+      batch.set(subDoc(groupId, 'rules', copyId(rule.id, l.id)), { ...rule.data(), leagueId: l.id });
+    }
+    batch.delete(rule.ref);
+  }
+  for (const e of entries.docs) {
+    const { dayId, counts = {} } = e.data();
+    const leagueId = leagueOfDay.get(dayId);
+    if (!leagueId) continue;
+    const moved: Record<string, unknown> = {};
+    for (const rule of legacy) {
+      if (counts[rule.id] === undefined) continue;
+      moved[rule.id] = deleteField();
+      moved[copyId(rule.id, leagueId)] = counts[rule.id];
+    }
+    if (Object.keys(moved).length) batch.set(e.ref, { counts: moved }, { merge: true });
+  }
+  await batch.commit();
+}
+
 function subscribeGroup(
   groupId: string,
   update: (fn: (s: GroupState) => GroupState) => void,
   onDeleted: () => void,
 ) {
+  migrateGroupRules(groupId).catch((e) => console.warn(`Regeln von ${groupId} umstellen`, e));
   const unsubs = [
     onSnapshot(
       groupRef(groupId),

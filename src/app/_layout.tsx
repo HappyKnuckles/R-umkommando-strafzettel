@@ -17,7 +17,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ title: 'Strafenkatalog' }} />
-        <Stack.Screen name="group/[groupId]/rule" options={{ presentation: 'modal', title: 'Regel' }} />
+        <Stack.Screen name="league/[leagueId]/rule" options={{ presentation: 'modal', title: 'Regel' }} />
       </Stack>
     </StoreProvider>
   );

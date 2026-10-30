@@ -19,8 +19,7 @@ export type RuleKind = 'count' | 'scoreBelow' | 'scoreAbove';
 export type Rule = {
   id: string;
   groupId: string;
-  /** null = applies to every league of the group */
-  leagueId: string | null;
+  leagueId: string;
   name: string;
   condition: string;
   amountCents: number;

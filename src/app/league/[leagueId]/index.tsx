@@ -20,15 +20,18 @@ import { formatAvg, formatCounts, formatDateLong, formatMoney, formatOpen, today
 import {
   average,
   daySummary,
+  isAutomatic,
   leagueDays,
   leagueMoney,
   leagueParticipants,
   leagueRules,
   memberLeague,
+  thresholdLabel,
 } from '../../../lib/stats';
 import { useStore } from '../../../lib/store';
+import { Rule } from '../../../lib/types';
 
-type Tab = 'days' | 'stats' | 'players';
+type Tab = 'days' | 'stats' | 'players' | 'rules';
 
 export default function LeagueScreen() {
   const { leagueId } = useLocalSearchParams<{ leagueId: string }>();
@@ -40,6 +43,7 @@ export default function LeagueScreen() {
 
   const days = leagueDays(data, league.id);
   const groupMembers = data.members.filter((m) => m.groupId === league.groupId);
+  const rules = leagueRules(data, league).filter((r) => !r.deletedOn);
 
   const newDay = () => {
     const today = todayIso();
@@ -55,6 +59,7 @@ export default function LeagueScreen() {
           { key: 'days', label: 'Spieltage' },
           { key: 'stats', label: 'Auswertung' },
           { key: 'players', label: `Spieler (${league.memberIds.length})` },
+          { key: 'rules', label: `Regeln (${rules.length})` },
         ]}
         value={tab}
         onChange={setTab}
@@ -114,7 +119,41 @@ export default function LeagueScreen() {
           </Muted>
         </>
       )}
+
+      {tab === 'rules' && (
+        <>
+          {rules.length === 0 && (
+            <Empty text="Der Strafkatalog ist leer. Füge z.B. „Pudel – 0,10 €“ hinzu." />
+          )}
+          {rules.map((r) => (
+            <RuleCard
+              key={r.id}
+              rule={r}
+              onPress={() => router.push(`/league/${league.id}/rule?ruleId=${r.id}`)}
+            />
+          ))}
+          <Button title="+ Regel hinzufügen" onPress={() => router.push(`/league/${league.id}/rule`)} />
+        </>
+      )}
     </Screen>
+  );
+}
+
+function RuleCard({ rule, onPress }: { rule: Rule; onPress: () => void }) {
+  return (
+    <Card onPress={onPress}>
+      <View style={styles.rowBetween}>
+        <Text style={[styles.title, { flex: 1 }]}>{rule.name}</Text>
+        <Money cents={rule.amountCents} />
+      </View>
+      {!!rule.condition && <Text style={{ color: colors.text, marginTop: 4 }}>{rule.condition}</Text>}
+      <Muted style={{ marginTop: 6 }}>
+        {rule.amountCents < 0 ? 'Gutschrift · ' : ''}
+        {isAutomatic(rule)
+          ? `Automatisch: pro Spiel ${thresholdLabel(rule)} Punkten`
+          : 'Manuell gezählt'}
+      </Muted>
+    </Card>
   );
 }
 
